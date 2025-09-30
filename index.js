@@ -1,71 +1,102 @@
+// index.js
+require('dotenv').config();
+
 const express = require('express');
 const axios = require('axios');
+const path = require('path');
+
 const app = express();
 
+// --- Env ---
+const PORT = process.env.PORT || 3000;
+const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
+const HS_OBJECT = process.env.HS_OBJECT || 'p243994756_pet';
+const HS_PROPERTIES = (process.env.HS_PROPERTIES || 'name,species,bio')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .join(',');
+
+if (!HUBSPOT_ACCESS_TOKEN) {
+  console.warn('[WARN] Missing HUBSPOT_ACCESS_TOKEN in .env (do NOT commit it)');
+}
+
+// Axios instance for HubSpot
+const hubspot = axios.create({
+  baseURL: 'https://api.hubapi.com',
+  headers: {
+    Authorization: `Bearer ${HUBSPOT_ACCESS_TOKEN}`,
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+// --- Express setup ---
 app.set('view engine', 'pug');
-app.use(express.static(__dirname + '/public'));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true })); // parse form posts
 
-// * Please DO NOT INCLUDE the private app access token in your repo. Don't do this practicum in your normal account.
-const PRIVATE_APP_ACCESS = '';
+const propList = HS_PROPERTIES.split(',').map(p => p.trim()).filter(Boolean);
 
-// TODO: ROUTE 1 - Create a new app.get route for the homepage to call your custom object data. Pass this data along to the front-end and create a new pug template in the views folder.
+// GET / — homepage table
+app.get('/', async (req, res) => {
+  try {
+    const { data } = await hubspot.get(`/crm/v3/objects/${encodeURIComponent(HS_OBJECT)}`, {
+      params: { properties: HS_PROPERTIES, limit: 100 },
+    });
 
-// * Code for Route 1 goes here
-
-// TODO: ROUTE 2 - Create a new app.get route for the form to create or update new custom object data. Send this data along in the next route.
-
-// * Code for Route 2 goes here
-
-// TODO: ROUTE 3 - Create a new app.post route for the custom objects form to create or update your custom object data. Once executed, redirect the user to the homepage.
-
-// * Code for Route 3 goes here
-
-/** 
-* * This is sample code to give you a reference for how you should structure your calls. 
-
-* * App.get sample
-app.get('/contacts', async (req, res) => {
-    const contacts = 'https://api.hubspot.com/crm/v3/objects/contacts';
-    const headers = {
-        Authorization: `Bearer ${PRIVATE_APP_ACCESS}`,
-        'Content-Type': 'application/json'
-    }
-    try {
-        const resp = await axios.get(contacts, { headers });
-        const data = resp.data.results;
-        res.render('contacts', { title: 'Contacts | HubSpot APIs', data });      
-    } catch (error) {
-        console.error(error);
-    }
+    res.render('homepage', {
+      title: 'Homepage | Integrating With HubSpot I Practicum',
+      records: data.results || [],
+      properties: propList,
+      error: null,
+    });
+  } catch (err) {
+    console.error('[GET /] Error:', err?.response?.data || err.message);
+    res.status(500).render('homepage', {
+      title: 'Homepage | Integrating With HubSpot I Practicum',
+      records: [],
+      properties: propList,
+      error: 'Failed to load records. Check token, HS_OBJECT, and scopes.',
+    });
+  }
 });
 
-* * App.post sample
-app.post('/update', async (req, res) => {
-    const update = {
-        properties: {
-            "favorite_book": req.body.newVal
-        }
-    }
-
-    const email = req.query.email;
-    const updateContact = `https://api.hubapi.com/crm/v3/objects/contacts/${email}?idProperty=email`;
-    const headers = {
-        Authorization: `Bearer ${PRIVATE_APP_ACCESS}`,
-        'Content-Type': 'application/json'
-    };
-
-    try { 
-        await axios.patch(updateContact, update, { headers } );
-        res.redirect('back');
-    } catch(err) {
-        console.error(err);
-    }
-
+// GET /update-cobj — show form
+app.get('/update-cobj', (req, res) => {
+  res.render('updates', {
+    title: 'Update Custom Object Form | Integrating With HubSpot I Practicum',
+    properties: propList,
+    formData: {},
+    error: null,
+  });
 });
-*/
 
+// POST /update-cobj — create record
+app.post('/update-cobj', async (req, res) => {
+  try {
+    const properties = {};
+    for (const p of propList) {
+      if (typeof req.body[p] !== 'undefined') properties[p] = req.body[p];
+    }
 
-// * Localhost
-app.listen(3000, () => console.log('Listening on http://localhost:3000'));
+    await hubspot.post(`/crm/v3/objects/${encodeURIComponent(HS_OBJECT)}`, { properties });
+
+    return res.redirect('/');
+  } catch (err) {
+    console.error('[POST /update-cobj] Error:', err?.response?.data || err.message);
+    res.status(400).render('updates', {
+      title: 'Update Custom Object Form | Integrating With HubSpot I Practicum',
+      properties: propList,
+      formData: req.body,
+      error: 'Failed to create record. Verify property names and token scopes.',
+    });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`Using HS_OBJECT="${HS_OBJECT}" and properties="${HS_PROPERTIES}"`);
+});
