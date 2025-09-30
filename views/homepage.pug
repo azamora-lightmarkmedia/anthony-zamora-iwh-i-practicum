@@ -1,0 +1,39 @@
+//- views/homepage.pug
+doctype html
+html(lang="en")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1")
+    title= title
+    link(rel="stylesheet", href="/css/style.css")
+  body
+    .container
+      header.header
+        h1 HubSpot Custom Object Records
+        nav
+          a.btn(href="/update-cobj") Add to this table
+
+      if error
+        .alert.alert-error= error
+
+      if !records || records.length === 0
+        p.no-data No records found. Try adding one.
+      else
+        .table-wrap
+          table.table
+            thead
+              tr
+                th ID
+                each prop in properties
+                  th= prop
+            tbody
+              each row in records
+                tr
+                  td.mono= row.id
+                  each prop in properties
+                    - const val = row.properties && row.properties[prop];
+                    td= (val === null || typeof val === 'undefined' || val === '') ? '—' : val
+
+      footer.footer
+        a.link(href="/") Reload
+
