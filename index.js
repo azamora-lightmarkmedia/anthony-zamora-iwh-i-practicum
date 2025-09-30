@@ -9,8 +9,8 @@ const app = express();
 
 // --- Env ---
 const PORT = process.env.PORT || 3000;
-const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
-const HS_OBJECT = process.env.HS_OBJECT || 'p243994756_pet';
+const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN; // from .env
+const HS_OBJECT = process.env.HS_OBJECT || 'p243994756_pet'; // your FQN
 const HS_PROPERTIES = (process.env.HS_PROPERTIES || 'name,species,bio')
   .split(',')
   .map(s => s.trim())
@@ -39,7 +39,7 @@ app.use(express.urlencoded({ extended: true })); // parse form posts
 
 const propList = HS_PROPERTIES.split(',').map(p => p.trim()).filter(Boolean);
 
-// GET / — homepage table
+// ROUTE 1: GET / — list custom object records
 app.get('/', async (req, res) => {
   try {
     const { data } = await hubspot.get(`/crm/v3/objects/${encodeURIComponent(HS_OBJECT)}`, {
@@ -63,7 +63,7 @@ app.get('/', async (req, res) => {
   }
 });
 
-// GET /update-cobj — show form
+// ROUTE 2: GET /update-cobj — show form
 app.get('/update-cobj', (req, res) => {
   res.render('updates', {
     title: 'Update Custom Object Form | Integrating With HubSpot I Practicum',
@@ -73,7 +73,7 @@ app.get('/update-cobj', (req, res) => {
   });
 });
 
-// POST /update-cobj — create record
+// ROUTE 3: POST /update-cobj — create record then redirect
 app.post('/update-cobj', async (req, res) => {
   try {
     const properties = {};
