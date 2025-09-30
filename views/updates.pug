@@ -1,0 +1,33 @@
+//- views/updates.pug
+doctype html
+html(lang="en")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1")
+    title= title
+    link(rel="stylesheet", href="/css/style.css")
+  body
+    .container
+      header.header
+        h1 Create a Custom Object Record
+        nav
+          a.link(href="/") ← Return to the homepage
+
+      if error
+        .alert.alert-error= error
+
+      form.form(method="POST", action="/update-cobj")
+        each prop in properties
+          .form-group
+            label.label(for=prop)= prop
+            input.input(
+              type="text",
+              id=prop,
+              name=prop,
+              value=(formData && formData[prop]) ? formData[prop] : '',
+              required=(prop === 'name')
+            )
+
+        .form-actions
+          button.btn(type="submit") Create record
+
